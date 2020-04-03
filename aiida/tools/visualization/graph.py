@@ -287,18 +287,20 @@ def _add_graphviz_node(
     if isinstance(node, Data):
 
         node_style = node_style_func(node)
-        label = ['{} ({})'.format(node.__class__.__name__, get_node_id_label(node, id_type))]
+        if id_type is None:
+            label = [node.__class__.__name__]
+        else:
+            label = ['{} ({})'.format(node.__class__.__name__, get_node_id_label(node, id_type))]
 
     elif isinstance(node, ProcessNode):
 
         node_style = node_style_func(node)
 
-        label = [
-            '{} ({})'.format(
-                node.__class__.__name__ if node.process_label is None else node.process_label,
-                get_node_id_label(node, id_type)
-            )
-        ]
+        process_name = node.__class__.__name__ if node.process_label is None else node.process_label
+        if id_type is None:
+            label = [process_name]
+        else:
+            label = ['{} ({})'.format(process_name, get_node_id_label(node, id_type))]
 
     if include_sublabels:
         sublabel = node_sublabel_func(node)
@@ -485,7 +487,7 @@ class Graph(object):
         link_types = tuple([getattr(LinkType, l.upper()) if isinstance(l, six.string_types) else l for l in link_types])
         return link_types
 
-    def add_incoming(self, node, link_types=(), annotate_links=None, return_pks=True):
+    def add_incoming(self, node, link_types=(), annotate_links=None, return_pks=True, skip_node_pks=()):
         """add nodes and edges for incoming links to a node
 
         :param node: node or node pk/uuid
@@ -506,6 +508,8 @@ class Graph(object):
 
         nodes = []
         for link_triple in node.get_incoming(link_type=self._convert_link_types(link_types)).link_triples:
+            if link_triple.node.pk in skip_node_pks:
+                continue
             self.add_node(link_triple.node)
             link_pair = LinkPair(link_triple.link_type, link_triple.link_label)
             style = self._link_styles(
@@ -516,7 +520,7 @@ class Graph(object):
 
         return nodes
 
-    def add_outgoing(self, node, link_types=(), annotate_links=None, return_pks=True):
+    def add_outgoing(self, node, link_types=(), annotate_links=None, return_pks=True, skip_node_pks=()):
         """add nodes and edges for outgoing links to a node
 
         :param node: node or node pk
@@ -537,6 +541,8 @@ class Graph(object):
 
         nodes = []
         for link_triple in node.get_outgoing(link_type=self._convert_link_types(link_types)).link_triples:
+            if link_triple.node.pk in skip_node_pks:
+                continue
             self.add_node(link_triple.node)
             link_pair = LinkPair(link_triple.link_type, link_triple.link_label)
             style = self._link_styles(
@@ -555,7 +561,8 @@ class Graph(object):
         annotate_links=False,
         origin_style=(),
         include_process_inputs=False,
-        print_func=None
+        print_func=None,
+        skip_node_pks=()
     ):
         """add nodes and edges from an origin recursively,
         following outgoing links
@@ -592,15 +599,17 @@ class Graph(object):
                 print_func('- Depth: {}'.format(cur_depth))
             new_nodes = []
             for node in leaf_nodes:
+                if node.pk in skip_node_pks:
+                    continue
                 outgoing_nodes = self.add_outgoing(
-                    node, link_types=link_types, annotate_links=annotate_links, return_pks=False
+                    node, link_types=link_types, annotate_links=annotate_links, return_pks=False, skip_node_pks=skip_node_pks
                 )
                 if outgoing_nodes and print_func:
                     print_func('  {} -> {}'.format(node.pk, [on.pk for on in outgoing_nodes]))
                 new_nodes.extend(outgoing_nodes)
 
                 if include_process_inputs and isinstance(node, ProcessNode):
-                    self.add_incoming(node, link_types=link_types, annotate_links=annotate_links)
+                    self.add_incoming(node, link_types=link_types, annotate_links=annotate_links, skip_node_pks=skip_node_pks)
 
             # ensure the same path isn't traversed multiple times
             leaf_nodes = []
@@ -618,6 +627,7 @@ class Graph(object):
         annotate_links=False,
         origin_style=(),
         include_process_outputs=False,
+        skip_node_pks=(),
         print_func=None
     ):
         """add nodes and edges from an origin recursively,
@@ -655,15 +665,17 @@ class Graph(object):
                 print_func('- Depth: {}'.format(cur_depth))
             new_nodes = []
             for node in last_nodes:
+                if node.pk in skip_node_pks:
+                    continue
                 incoming_nodes = self.add_incoming(
-                    node, link_types=link_types, annotate_links=annotate_links, return_pks=False
+                    node, link_types=link_types, annotate_links=annotate_links, return_pks=False, skip_node_pks=skip_node_pks
                 )
                 if incoming_nodes and print_func:
                     print_func('  {} -> {}'.format(node.pk, [n.pk for n in incoming_nodes]))
                 new_nodes.extend(incoming_nodes)
 
                 if include_process_outputs and isinstance(node, ProcessNode):
-                    self.add_outgoing(node, link_types=link_types, annotate_links=annotate_links)
+                    self.add_outgoing(node, link_types=link_types, annotate_links=annotate_links, skip_node_pks=skip_node_pks)
 
             # ensure the same path isn't traversed multiple times
             last_nodes = []
