@@ -7,7 +7,7 @@ Batch Job Schedulers
 Batch job schedulers manage the job queues and execution on a compute resource.
 AiiDA ships with plugins for a range of schedulers, and this section describes the interface of these plugins.
 
-See :ref:`this how-to <how-to:plugin-codes:scheduler>` for adding support for custom schedulers.
+See :ref:`this how-to <how-to:codes:scheduler>` for adding support for custom schedulers.
 
 PBSPro
 ------
@@ -98,7 +98,7 @@ Unsurprisingly, different schedulers have different ways of specifying the resou
 In AiiDA, these differences are accounted for by subclasses of the |JobResource|  class.
 The previous section lists which subclass to use with a given scheduler.
 
-All subclasses define at least the :py:meth:`~aiida.schedulers.datastructures.JobResource.get_tot_num_mpiprocs` method that returns the total number of MPI processes requested but otherwise have slightly different interfaces described in the following.
+All subclasses define at least the :meth:`get_tot_num_mpiprocs <aiida.schedulers.datastructures.JobResource.get_tot_num_mpiprocs>` method that returns the total number of MPI processes requested but otherwise have slightly different interfaces described in the following.
 
 .. note::
 
@@ -216,5 +216,5 @@ And setting the fields using the ``metadata.options`` input dictionary of the |C
 
 
 .. |NodeNumberJobResource| replace:: :py:class:`~aiida.schedulers.datastructures.NodeNumberJobResource`
-.. |JobResource| replace:: :py:class:`~aiida.schedulers.datastructures.JobResource`
+.. |JobResource| replace:: :py:class:`aiida.schedulers.datastructures.JobResource`
 .. |CalcJob| replace:: :py:class:`~aiida.engine.processes.calcjobs.calcjob.CalcJob`
