@@ -9,7 +9,7 @@ For guides on writing specific extensions, see :ref:`how-to:plugin-codes:interfa
 
 .. todo::
 
-    For guides on writing specific extensions, see :ref:`how-to:plugin-codes:interfacing`, :ref:'how-to:plugin-codes:scheduler', :ref:'how-to:plugin-codes:transport' or :ref:`how-to:data:plugin`.
+    For guides on writing specific extensions, see :ref:`how-to:plugin-codes:interfacing`, -ref-'how-to:plugin-codes:scheduler', -ref-'how-to:plugin-codes:transport' or :ref:`how-to:data:plugin`.
 
 
 .. _how-to:plugins:bundle:
