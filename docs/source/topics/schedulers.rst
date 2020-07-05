@@ -216,5 +216,5 @@ And setting the fields using the ``metadata.options`` input dictionary of the |C
 
 
 .. |NodeNumberJobResource| replace:: :py:class:`~aiida.schedulers.datastructures.NodeNumberJobResource`
-.. |JobResource| replace:: :py:class:`~aiida.schedulers.datastructures.JobResource`
+.. |JobResource| replace:: :py:class:`aiida.schedulers.datastructures.JobResource`
 .. |CalcJob| replace:: :py:class:`~aiida.engine.processes.calcjobs.calcjob.CalcJob`
