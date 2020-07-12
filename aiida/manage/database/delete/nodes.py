@@ -8,7 +8,6 @@
 # For further information please visit http://www.aiida.net               #
 ###########################################################################
 """Function to delete nodes from the database."""
-
 import click
 from aiida.cmdline.utils import echo
 
@@ -106,21 +105,9 @@ def delete_nodes(pks, verbosity=0, dry_run=False, force=False, **kwargs):
             echo.echo('Exiting without deleting')
             return
 
-    # Recover the list of folders to delete before actually deleting the nodes. I will delete the folders only later,
-    # so that if there is a problem during the deletion of the nodes in the DB, I don't delete the folders
-    repositories = [load_node(pk)._repository for pk in pks_set_to_delete]  # pylint: disable=protected-access
-
     if verbosity > 0:
         echo.echo('Starting node deletion...')
     delete_nodes_and_connections(pks_set_to_delete)
-
-    if verbosity > 0:
-        echo.echo('Nodes deleted from database, deleting files from the repository now...')
-
-    # If we are here, we managed to delete the entries from the DB.
-    # I can now delete the folders
-    for repository in repositories:
-        repository.erase(force=True)
 
     if verbosity > 0:
         echo.echo('Deletion completed.')

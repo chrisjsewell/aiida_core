@@ -20,7 +20,6 @@ from aiida.common.exceptions import LicensingException
 from aiida.common.folders import RepositoryFolder, SandboxFolder, Folder
 from aiida.common.lang import type_check
 from aiida.common.log import override_log_formatter, LOG_LEVEL_REPORT
-from aiida.orm.utils._repository import Repository
 
 from aiida.tools.importexport.common import exceptions, get_progress_bar, close_progress_bar
 from aiida.tools.importexport.common.config import EXPORT_VERSION, NODES_EXPORT_SUBFOLDER
@@ -717,7 +716,7 @@ def export_tree(
             thisnodefolder = nodesubfolder.get_subfolder(sharded_uuid, create=False, reset_limit=True)
 
             # Make sure the node's repository folder was not deleted
-            src = RepositoryFolder(section=Repository._section_name, uuid=uuid)  # pylint: disable=protected-access
+            src = RepositoryFolder(section=Repository._section_name, uuid=uuid)  # pylint: disable=protected-access,undefined-variable
             if not src.exists():
                 raise exceptions.ArchiveExportError(
                     f'Unable to find the repository folder for Node with UUID={uuid} in the local repository'

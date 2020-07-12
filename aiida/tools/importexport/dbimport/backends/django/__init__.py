@@ -23,7 +23,6 @@ from aiida.common.links import LinkType, validate_link_label
 from aiida.common.log import override_log_formatter
 from aiida.common.utils import grouper, get_object_from_string
 from aiida.manage.configuration import get_config_option
-from aiida.orm.utils._repository import Repository
 from aiida.orm import QueryBuilder, Node, Group, ImportGroup
 
 from aiida.tools.importexport.common import exceptions, get_progress_bar, close_progress_bar
@@ -444,7 +443,7 @@ def import_data_dj(
                                 'Unable to find the repository folder for Node with UUID={} in the exported '
                                 'file'.format(import_entry_uuid)
                             )
-                        destdir = RepositoryFolder(section=Repository._section_name, uuid=import_entry_uuid)
+                        destdir = RepositoryFolder(section=Repository._section_name, uuid=import_entry_uuid)  # pylint: disable=undefined-variable
                         # Replace the folder, possibly destroying existing previous folders, and move the files
                         # (faster if we are on the same filesystem, and in any case the source is a SandboxFolder)
                         progress_bar.set_description_str(f'{pbar_node_base_str}Repository', refresh=True)

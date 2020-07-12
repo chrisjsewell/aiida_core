@@ -468,7 +468,7 @@ class NodeTranslator(BaseTranslator):
 
         try:
             flist = node.list_objects(filename)
-        except IOError:
+        except NotADirectoryError:
             raise RestInputValidationError(f'{filename} is not a directory in this repository')
         response = []
         for fobj in flist:
@@ -490,7 +490,7 @@ class NodeTranslator(BaseTranslator):
             try:
                 data = node.get_object_content(filename, mode='rb')
                 return data
-            except IOError:
+            except FileNotFoundError:
                 raise RestInputValidationError('No such file is present')
         raise RestValidationError('filename is not provided')
 
