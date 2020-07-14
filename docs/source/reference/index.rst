@@ -8,4 +8,3 @@ Reference
    command_line
    apidoc/aiida.rst
    rest_api
-   backup_script
