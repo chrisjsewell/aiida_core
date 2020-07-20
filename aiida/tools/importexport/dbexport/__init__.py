@@ -12,24 +12,24 @@
 import logging
 import os
 import tarfile
+import tempfile
 import time
 
 from aiida import get_version, orm
 from aiida.common import json
 from aiida.common.exceptions import LicensingException
-from aiida.common.folders import RepositoryFolder, SandboxFolder, Folder
+from aiida.common.folders import SandboxFolder, Folder
 from aiida.common.lang import type_check
 from aiida.common.log import override_log_formatter, LOG_LEVEL_REPORT
 
 from aiida.tools.importexport.common import exceptions, get_progress_bar, close_progress_bar
-from aiida.tools.importexport.common.config import EXPORT_VERSION, NODES_EXPORT_SUBFOLDER
+from aiida.tools.importexport.common.config import EXPORT_VERSION
 from aiida.tools.importexport.common.config import (
     NODE_ENTITY_NAME, GROUP_ENTITY_NAME, COMPUTER_ENTITY_NAME, LOG_ENTITY_NAME, COMMENT_ENTITY_NAME
 )
 from aiida.tools.importexport.common.config import (
     get_all_fields_info, file_fields_to_model_fields, entity_names_to_entities, model_fields_to_file_fields
 )
-from aiida.tools.importexport.common.utils import export_shard_uuid
 from aiida.tools.importexport.dbexport.utils import (
     check_licenses, fill_in_query, serialize_dict, check_process_nodes_sealed, summary, EXPORT_LOGGER, ExportFileFormat,
     deprecated_parameters
@@ -660,8 +660,6 @@ def export_tree(
     # Now collecting and storing
     ######################################
     # subfolder inside the export package
-    nodesubfolder = folder.get_subfolder(NODES_EXPORT_SUBFOLDER, create=True, reset_limit=True)
-
     EXPORT_LOGGER.debug('ADDING DATA TO EXPORT ARCHIVE...')
 
     data = {
@@ -674,7 +672,6 @@ def export_tree(
 
     # N.B. We're really calling zipfolder.open (if exporting a zipfile)
     with folder.open('data.json', mode='w') as fhandle:
-        # fhandle.write(json.dumps(data, cls=UUIDEncoder))
         fhandle.write(json.dumps(data))
 
     # Turn sets into lists to be able to export them as JSON metadata.
@@ -701,29 +698,41 @@ def export_tree(
 
     # If there are no nodes, there are no repository files to store
     if all_node_pks:
-        all_node_uuids = {node_pk_2_uuid_mapping[_] for _ in all_node_pks}
 
-        progress_bar = get_progress_bar(total=len(all_node_uuids), disable=silent)
-        pbar_base_str = 'Exporting repository - '
+        with tempfile.TemporaryDirectory() as temp:
+            from disk_objectstore import Container
+            from aiida.manage.manager import get_manager
 
-        for uuid in all_node_uuids:
-            sharded_uuid = export_shard_uuid(uuid)
+            dirpath = os.path.join(temp, 'container')
+            container_export = Container(dirpath)
+            container_export.init_container()
 
-            progress_bar.set_description_str(f"{pbar_base_str}UUID={uuid.split('-')[0]}", refresh=False)
-            progress_bar.update()
+            container_profile = get_manager().get_profile().get_repository_container()
 
-            # Important to set create=False, otherwise creates twice a subfolder. Maybe this is a bug of insert_path?
-            thisnodefolder = nodesubfolder.get_subfolder(sharded_uuid, create=False, reset_limit=True)
+            # This should be done more effectively, starting by not having to load the node. Either the repository
+            # metadata should be collected earlier when the nodes themselves are already exported or a single separate
+            # query should be done.
+            hashkeys = []
 
-            # Make sure the node's repository folder was not deleted
-            src = RepositoryFolder(section=Repository._section_name, uuid=uuid)  # pylint: disable=protected-access,undefined-variable
-            if not src.exists():
-                raise exceptions.ArchiveExportError(
-                    f'Unable to find the repository folder for Node with UUID={uuid} in the local repository'
-                )
+            def collect_hashkeys(objects):
+                for obj in objects.values():
+                    hashkey = obj.get('k', None)
+                    if hashkey is not None:
+                        hashkeys.append(hashkey)
+                    subobjects = obj.get('o', None)
+                    if subobjects:
+                        collect_hashkeys(subobjects)
 
-            # In this way, I copy the content of the folder, and not the folder itself
-            thisnodefolder.insert_path(src=src.abspath, dest_name='.')
+            for pk in all_node_pks:
+                node = orm.load_node(pk)
+                collect_hashkeys(node.repository_metadata.get('o', {}))
+
+            container_profile.export(set(hashkeys), container_export, compress=True)
+
+            # Have to export to a new container first on a temporary directory and only then copy the contents to the
+            # `folder`, because `folder` can also be an instance of `ZipFolder` where we cannot just circumvent the API
+            # and create the container directly in the export archive.
+            folder.insert_path(dirpath)
 
     close_progress_bar(leave=False)
 

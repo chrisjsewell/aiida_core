@@ -136,9 +136,9 @@ def import_data_sqla(
             extract_tree(in_path, folder)
         else:
             if tarfile.is_tarfile(in_path):
-                extract_tar(in_path, folder, silent=silent, nodes_export_subfolder=NODES_EXPORT_SUBFOLDER, **kwargs)
+                extract_tar(in_path, folder, **kwargs)
             elif zipfile.is_zipfile(in_path):
-                extract_zip(in_path, folder, silent=silent, nodes_export_subfolder=NODES_EXPORT_SUBFOLDER, **kwargs)
+                extract_zip(in_path, folder, **kwargs)
             else:
                 raise exceptions.ImportValidationError(
                     'Unable to detect the input file format, it is neither a '
@@ -503,21 +503,34 @@ def import_data_sqla(
                         progress_bar.update()
                         pbar_node_base_str = f"{pbar_base_str}UUID={import_entry_uuid.split('-')[0]} - "
 
-                        # Before storing entries in the DB, I store the files (if these are nodes).
-                        # Note: only for new entries!
-                        subfolder = folder.get_subfolder(
-                            os.path.join(NODES_EXPORT_SUBFOLDER, export_shard_uuid(import_entry_uuid))
-                        )
-                        if not subfolder.exists():
-                            raise exceptions.CorruptArchive(
-                                'Unable to find the repository folder for Node with UUID={} in the exported '
-                                'file'.format(import_entry_uuid)
-                            )
-                        destdir = RepositoryFolder(section=Repository._section_name, uuid=import_entry_uuid)  # pylint: disable=undefined-variable
-                        # Replace the folder, possibly destroying existing previous folders, and move the files
-                        # (faster if we are on the same filesystem, and in any case the source is a SandboxFolder)
-                        progress_bar.set_description_str(f'{pbar_node_base_str}Repository', refresh=True)
-                        destdir.replace_with_folder(subfolder.abspath, move=True, overwrite=True)
+                        # Copy the contents of the repository container. Note that this should really be done within the
+                        # database transaction and if that fails, the written files should be deleted, or at least
+                        # soft-deleted. This is to be done later. This is first working example
+                        from disk_objectstore import Container
+                        from aiida.manage.manager import get_manager
+
+                        container_export = Container(os.path.join(folder.abspath, 'container'))
+                        if not container_export.is_initialised:
+                            container_export.init_container()
+
+                        container_profile = get_manager().get_profile().get_repository_container()
+                        if not container_export.is_initialised:
+                            container_export.init_container()
+
+                        def collect_hashkeys(objects, hashkeys):
+                            for obj in objects.values():
+                                hashkey = obj.get('k', None)
+                                if hashkey is not None:
+                                    hashkeys.append(hashkey)
+                                subobjects = obj.get('o', None)
+                                if subobjects:
+                                    collect_hashkeys(subobjects, hashkeys)
+
+                        repository_metadata = data['export_data']['Node'][str(import_entry_pk)
+                                                                          ].get('repository_metadata', {})
+                        hashkeys = []
+                        collect_hashkeys(repository_metadata.get('o', {}), hashkeys)
+                        container_export.export(set(hashkeys), container_profile, compress=True)
 
                         # For Nodes, we also have to store Attributes!
                         IMPORT_LOGGER.debug('STORING NEW NODE ATTRIBUTES...')

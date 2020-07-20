@@ -9,7 +9,6 @@
 ###########################################################################
 # pylint: disable=protected-access,fixme,too-many-arguments,too-many-locals,too-many-statements,too-many-branches,too-many-nested-blocks
 """ Django-specific import of AiiDA entities """
-
 from distutils.version import StrictVersion
 import logging
 import os
@@ -18,21 +17,20 @@ import zipfile
 from itertools import chain
 
 from aiida.common import timezone, json
-from aiida.common.folders import SandboxFolder, RepositoryFolder
+from aiida.common.folders import SandboxFolder
 from aiida.common.links import LinkType, validate_link_label
 from aiida.common.log import override_log_formatter
-from aiida.common.utils import grouper, get_object_from_string
+from aiida.common.utils import get_object_from_string
 from aiida.manage.configuration import get_config_option
 from aiida.orm import QueryBuilder, Node, Group, ImportGroup
 
 from aiida.tools.importexport.common import exceptions, get_progress_bar, close_progress_bar
 from aiida.tools.importexport.common.archive import extract_tree, extract_tar, extract_zip
-from aiida.tools.importexport.common.config import DUPL_SUFFIX, EXPORT_VERSION, NODES_EXPORT_SUBFOLDER, BAR_FORMAT
+from aiida.tools.importexport.common.config import DUPL_SUFFIX, EXPORT_VERSION
 from aiida.tools.importexport.common.config import (
     NODE_ENTITY_NAME, GROUP_ENTITY_NAME, COMPUTER_ENTITY_NAME, USER_ENTITY_NAME, LOG_ENTITY_NAME, COMMENT_ENTITY_NAME
 )
 from aiida.tools.importexport.common.config import entity_names_to_signatures
-from aiida.tools.importexport.common.utils import export_shard_uuid
 from aiida.tools.importexport.dbimport.utils import (
     deserialize_field, merge_comment, merge_extras, start_summary, result_summary, IMPORT_LOGGER
 )
@@ -46,8 +44,7 @@ def import_data_dj(
     extras_mode_existing='kcl',
     extras_mode_new='import',
     comment_mode='newest',
-    silent=False,
-    **kwargs
+    silent=False
 ):
     """Import exported AiiDA archive to the AiiDA database and repository.
 
@@ -132,9 +129,9 @@ def import_data_dj(
             extract_tree(in_path, folder)
         else:
             if tarfile.is_tarfile(in_path):
-                extract_tar(in_path, folder, silent=silent, nodes_export_subfolder=NODES_EXPORT_SUBFOLDER, **kwargs)
+                extract_tar(in_path, folder)
             elif zipfile.is_zipfile(in_path):
-                extract_zip(in_path, folder, silent=silent, nodes_export_subfolder=NODES_EXPORT_SUBFOLDER, **kwargs)
+                extract_zip(in_path, folder)
             else:
                 raise exceptions.ImportValidationError(
                     'Unable to detect the input file format, it is neither a '
@@ -391,8 +388,6 @@ def import_data_dj(
                     IMPORT_LOGGER.debug(
                         'Existing %s: %s (%s->%s)', model_name, unique_id, import_entry_pk, existing_entry_id
                     )
-                    # print('  `-> WARNING: NO DUPLICITY CHECK DONE!')
-                    # CHECK ALSO FILES!
 
                 # Store all objects for this model in a list, and store them all in once at the end.
                 objects_to_create = []
@@ -433,21 +428,34 @@ def import_data_dj(
                         progress_bar.update()
                         pbar_node_base_str = f"{pbar_base_str}UUID={import_entry_uuid.split('-')[0]} - "
 
-                        # Before storing entries in the DB, I store the files (if these are nodes).
-                        # Note: only for new entries!
-                        subfolder = folder.get_subfolder(
-                            os.path.join(NODES_EXPORT_SUBFOLDER, export_shard_uuid(import_entry_uuid))
-                        )
-                        if not subfolder.exists():
-                            raise exceptions.CorruptArchive(
-                                'Unable to find the repository folder for Node with UUID={} in the exported '
-                                'file'.format(import_entry_uuid)
-                            )
-                        destdir = RepositoryFolder(section=Repository._section_name, uuid=import_entry_uuid)  # pylint: disable=undefined-variable
-                        # Replace the folder, possibly destroying existing previous folders, and move the files
-                        # (faster if we are on the same filesystem, and in any case the source is a SandboxFolder)
-                        progress_bar.set_description_str(f'{pbar_node_base_str}Repository', refresh=True)
-                        destdir.replace_with_folder(subfolder.abspath, move=True, overwrite=True)
+                        # Copy the contents of the repository container. Note that this should really be done within the
+                        # database transaction and if that fails, the written files should be deleted, or at least
+                        # soft-deleted. This is to be done later. This is first working example
+                        from disk_objectstore import Container
+                        from aiida.manage.manager import get_manager
+
+                        container_export = Container(os.path.join(folder.abspath, 'container'))
+                        if not container_export.is_initialised:
+                            container_export.init_container()
+
+                        container_profile = get_manager().get_profile().get_repository_container()
+                        if not container_export.is_initialised:
+                            container_export.init_container()
+
+                        def collect_hashkeys(objects, hashkeys):
+                            for obj in objects.values():
+                                hashkey = obj.get('k', None)
+                                if hashkey is not None:
+                                    hashkeys.append(hashkey)
+                                subobjects = obj.get('o', None)
+                                if subobjects:
+                                    collect_hashkeys(subobjects, hashkeys)
+
+                        repository_metadata = data['export_data']['Node'][str(import_entry_pk)
+                                                                          ].get('repository_metadata', {})
+                        hashkeys = []
+                        collect_hashkeys(repository_metadata.get('o', {}), hashkeys)
+                        container_export.export(set(hashkeys), container_profile, compress=True)
 
                         # For DbNodes, we also have to store its attributes
                         IMPORT_LOGGER.debug('STORING NEW NODE ATTRIBUTES...')

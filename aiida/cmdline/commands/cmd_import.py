@@ -100,6 +100,9 @@ def _try_import(migration_performed, file_to_import, archive, group, migration, 
     # Initialization
     migrate_archive = False
 
+    # This should not be passed into `import_data`
+    more_archives = kwargs.pop('more_archives', None)
+
     try:
         import_data(file_to_import, group, **kwargs)
     except IncompatibleArchiveVersionError as exception:
@@ -107,6 +110,7 @@ def _try_import(migration_performed, file_to_import, archive, group, migration, 
             # Migration has been performed, something is still wrong
             _echo_error(
                 f'{archive} has been migrated, but it still cannot be imported',
+                more_archives=more_archives,
                 non_interactive=non_interactive,
                 raised_exception=exception,
                 **kwargs
@@ -131,6 +135,7 @@ def _try_import(migration_performed, file_to_import, archive, group, migration, 
     except Exception as exception:
         _echo_error(
             f'an exception occurred while importing the archive {archive}',
+            more_archives=more_archives,
             non_interactive=non_interactive,
             raised_exception=exception,
             **kwargs

@@ -35,9 +35,9 @@ class TestMigrate(ArchiveMigrationTest):
         # Migrate
         with SandboxFolder(sandbox_in_repo=False) as folder:
             if zipfile.is_zipfile(dirpath_archive):
-                extract_zip(dirpath_archive, folder, silent=True)
+                extract_zip(dirpath_archive, folder)
             elif tarfile.is_tarfile(dirpath_archive):
-                extract_tar(dirpath_archive, folder, silent=True)
+                extract_tar(dirpath_archive, folder)
             else:
                 raise ValueError('invalid file format, expected either a zip archive or gzipped tarball')
 
@@ -237,9 +237,9 @@ class TestMigrate(ArchiveMigrationTest):
         # Migrate
         with SandboxFolder(sandbox_in_repo=False) as folder:
             if zipfile.is_zipfile(dirpath_archive):
-                extract_zip(dirpath_archive, folder, silent=True)
+                extract_zip(dirpath_archive, folder)
             elif tarfile.is_tarfile(dirpath_archive):
-                extract_tar(dirpath_archive, folder, silent=True)
+                extract_tar(dirpath_archive, folder)
             else:
                 raise ValueError('invalid file format, expected either a zip archive or gzipped tarball')
 
@@ -373,9 +373,9 @@ class TestMigrate(ArchiveMigrationTest):
         # Unpack archive, check data.json, and migrate to v0.4
         with SandboxFolder(sandbox_in_repo=False) as folder:
             if zipfile.is_zipfile(dirpath_archive):
-                extract_zip(dirpath_archive, folder, silent=True)
+                extract_zip(dirpath_archive, folder)
             elif tarfile.is_tarfile(dirpath_archive):
-                extract_tar(dirpath_archive, folder, silent=True)
+                extract_tar(dirpath_archive, folder)
             else:
                 raise ValueError('invalid file format, expected either a zip archive or gzipped tarball')
 

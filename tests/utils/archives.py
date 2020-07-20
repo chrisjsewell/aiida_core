@@ -80,11 +80,10 @@ def import_archive(archive, filepath=None, external_module=None):
     import_data(dirpath_archive, silent=True)
 
 
-def get_json_files(archive, silent=True, filepath=None, external_module=None):
+def get_json_files(archive, filepath=None, external_module=None):
     """Get metadata.json and data.json from an exported AiiDA archive
 
     :param archive: the relative filename of the archive
-    :param silent: Whether or not the extraction should be silent
     :param filepath: str of directories of where to find archive (starting "/"s are irrelevant)
     :param external_module: string with name of external module, where archive can be found
     """
@@ -94,9 +93,9 @@ def get_json_files(archive, silent=True, filepath=None, external_module=None):
     # Unpack archive
     with SandboxFolder(sandbox_in_repo=False) as folder:
         if zipfile.is_zipfile(dirpath_archive):
-            extract_zip(dirpath_archive, folder, silent=silent)
+            extract_zip(dirpath_archive, folder)
         elif tarfile.is_tarfile(dirpath_archive):
-            extract_tar(dirpath_archive, folder, silent=silent)
+            extract_tar(dirpath_archive, folder)
         else:
             raise ValueError('invalid file format, expected either a zip archive or gzipped tarball')
 
@@ -112,7 +111,7 @@ def get_json_files(archive, silent=True, filepath=None, external_module=None):
     return metadata, data
 
 
-def migrate_archive(input_file, output_file, silent=True):
+def migrate_archive(input_file, output_file):
     """Migrate contents using `migrate_recursively`
     This is essentially similar to `verdi export migrate`.
     However, since this command may be disabled, this function simulates it and keeps the tests working.
@@ -125,9 +124,9 @@ def migrate_archive(input_file, output_file, silent=True):
     # Unpack archive, migrate, and re-pack archive
     with SandboxFolder(sandbox_in_repo=False) as folder:
         if zipfile.is_zipfile(input_file):
-            extract_zip(input_file, folder, silent=silent)
+            extract_zip(input_file, folder)
         elif tarfile.is_tarfile(input_file):
-            extract_tar(input_file, folder, silent=silent)
+            extract_tar(input_file, folder)
         else:
             raise ValueError('invalid file format, expected either a zip archive or gzipped tarball')
 

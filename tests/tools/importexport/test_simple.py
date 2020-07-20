@@ -142,7 +142,7 @@ class TestSimple(AiidaTestCase):
         folder = SandboxFolder()
         export_tree([struct], folder=folder, silent=True, allowed_licenses=['GPL'])
         # Folder should contain two files of metadata + nodes/
-        self.assertEqual(len(folder.get_content_list()), 3)
+        self.assertEqual(len(folder.get_content_list()), 3, folder.get_content_list())
 
         folder = SandboxFolder()
         export_tree([struct], folder=folder, silent=True, forbidden_licenses=['Academic'])

@@ -161,6 +161,7 @@ def create(
 def migrate(input_file, output_file, force, silent, in_place, archive_format, version):
     # pylint: disable=too-many-locals,too-many-statements,too-many-branches
     """Migrate an export archive to a more recent format version."""
+    from distutils.version import StrictVersion
     import tarfile
     import zipfile
 
@@ -187,9 +188,9 @@ def migrate(input_file, output_file, force, silent, in_place, archive_format, ve
     with SandboxFolder(sandbox_in_repo=False) as folder:
 
         if zipfile.is_zipfile(input_file):
-            extract_zip(input_file, folder, silent=silent)
+            extract_zip(input_file, folder)
         elif tarfile.is_tarfile(input_file):
-            extract_tar(input_file, folder, silent=silent)
+            extract_tar(input_file, folder)
         else:
             echo.echo_critical('invalid file format, expected either a zip archive or gzipped tarball')
 
@@ -202,8 +203,8 @@ def migrate(input_file, output_file, force, silent, in_place, archive_format, ve
             echo.echo_critical(f'export archive does not contain the required file {fhandle.filename}')
 
         old_version = migration.verify_metadata_version(metadata)
-        if version <= old_version:
-            echo.echo_success(f'nothing to be done - archive already at version {old_version} >= {version}')
+        if StrictVersion(old_version) >= StrictVersion(version):
+            echo.echo_success('nothing to be done - archive already at version {old_version} >= {version}')
             return
 
         try:

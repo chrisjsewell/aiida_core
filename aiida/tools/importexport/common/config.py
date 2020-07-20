@@ -14,7 +14,7 @@ from aiida.orm import Computer, Group, Node, User, Log, Comment
 __all__ = ('EXPORT_VERSION',)
 
 # Current export version
-EXPORT_VERSION = '0.9'
+EXPORT_VERSION = '0.10'
 
 DUPL_SUFFIX = ' (Imported #{})'
 
@@ -172,6 +172,7 @@ def get_all_fields_info():
             'requires': COMPUTER_ENTITY_NAME,
             'related_name': 'dbnodes'
         },
+        'repository_metadata': {},
         'description': {},
         'process_type': {}
     }
