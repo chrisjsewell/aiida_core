@@ -20,7 +20,7 @@ from aiida.tools.importexport.migration.utils import verify_metadata_version, up
 def migrate_repository(metadata, data, folder):
     """Migrate the file repository to a disk object store container."""
     from disk_objectstore import Container
-    from aiida.repository import Repository, File
+    from aiida.repository import Repository
     from aiida.repository.backend import DiskObjectStoreRepositoryBackend
 
     container = Container(os.path.join(folder.abspath, 'container'))
@@ -45,8 +45,8 @@ def migrate_repository(metadata, data, folder):
 
         repository.put_object_from_tree(dirpath)
         values['repository_metadata'] = repository.serialize()
-        # Artificially reset the metadata
-        repository._directory = File()  # pylint: disable=protected-access
+        # Reset the repository's virtual hierarchy to be empty
+        repository.reset()
 
     container.pack_all_loose(compress=False)
     shutil.rmtree(os.path.join(folder.abspath, 'nodes'))
