@@ -11,15 +11,17 @@
 
 The implementation is partially based on back-porting ``zipfile.Path`` (new in python 3.8)
 """
+from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 import itertools
 from pathlib import Path
 import posixpath
+import re
 from types import TracebackType
-from typing import cast, Iterable, Optional, Set, Type, Union
+from typing import Any, cast, Dict, Iterable, List, Optional, Pattern, Set, Type, Union
 import zipfile
 
-__all__ = ('ZipPath',)
+__all__ = ('ZipPath', 'ZipFileReadRegex')
 
 
 class ZipPath:
@@ -323,3 +325,99 @@ def _ancestry(path: str) -> Iterable[str]:
     while path and path != posixpath.sep:
         yield path
         path, _ = posixpath.split(path)
+
+
+class _RegexOnlyZipInfoList(Sequence):
+    """List to only store ``ZipInfo`` with regex matched filenames (for use with targeted reads).
+
+    Note: the length will still be reported as the length of all ``ZipInfo``.
+
+    """
+
+    def __init__(self, regex: str):
+        """Initialise mapping.
+
+        :param regex: A regex string to restrict what filenames are stored.
+
+        """
+        self._regex: Pattern = re.compile(regex)
+        self._list: List[zipfile.ZipInfo] = []
+        self._len = 0
+
+    def __repr__(self):
+        return self._list.__repr__()
+
+    def __getitem__(self, index: Any):
+        return self._list.__getitem__(index)
+
+    def __len__(self):
+        return self._len
+
+    def append(self, info: zipfile.ZipInfo):
+        self._len += 1
+        if self._regex.match(info.filename):
+            self._list.append(info)
+
+    def __iter__(self):
+        return self._list.__iter__()
+
+
+class _RegexOnlyZipInfoDict(Mapping):
+    """Dict to only store ``ZipInfo`` with regex matched filenames (for use with targeted reads).
+
+    Note: the length will still be reported as the length of all ``ZipInfo``.
+
+    """
+
+    def __init__(self, regex: str):
+        """Initialise mapping.
+
+        :param regex: A regex string to restrict what filenames are stored.
+
+        """
+        self._regex: Pattern = re.compile(regex)
+        self._dict: Dict[str, zipfile.ZipInfo] = {}
+        self._len = 0
+
+    def __repr__(self):
+        return self._dict.__repr__()
+
+    def __getitem__(self, name: str):
+        return self._dict.__getitem__(name)
+
+    def __len__(self):
+        return self._len
+
+    def __iter__(self):
+        return self._dict.__iter__()
+
+    def __setitem__(self, name: str, info: zipfile.ZipInfo):
+        self._len += 1
+        if self._regex.match(name):
+            self._dict[name] = info
+
+
+class ZipFileReadRegex(zipfile.ZipFile):
+    """Zip file which only stores set paths, defined by a regex.
+
+    This class inhibits the storage of ``ZipInfo`` with a filepath that does not match a specified regex.
+
+    It is intended to be used to read specific files from a zipfile containing large amounts of objects.
+    In this case it would normally store a ``ZipInfo`` for all objects, leading to very high memory usage.
+
+    """
+
+    def __init__(self, *args, **kwargs):
+        mode = args[1] if len(args) > 1 else kwargs['mode']
+        if mode != 'r':
+            raise ValueError('can only use ZipFileReadRegex in read mode')
+        if 'regex' not in kwargs:
+            raise ValueError('must specify regex')
+        self._regex = kwargs.pop('regex')
+        super().__init__(*args, **kwargs)
+
+    def _RealGetContents(self):
+        """Read in the table of contents for the ZIP file."""
+        self.filelist = _RegexOnlyZipInfoList(self._regex)
+        self.NameToInfo = _RegexOnlyZipInfoDict(self._regex)
+        super()._RealGetContents()

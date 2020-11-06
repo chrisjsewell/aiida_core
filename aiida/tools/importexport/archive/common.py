@@ -13,6 +13,8 @@ import copy
 import dataclasses
 import os
 from pathlib import Path
+import posixpath
+import re
 import tarfile
 from types import TracebackType
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type, Union
@@ -21,6 +23,7 @@ import zipfile
 from aiida.common import json  # handles byte dumps
 from aiida.common.log import AIIDA_LOGGER
 from aiida.tools.importexport.common.exceptions import CorruptArchive
+from aiida.tools.importexport.archive.zip_path import ZipFileReadRegex
 
 __all__ = (
     'ArchiveMetadata', 'detect_archive_type', 'null_callback', 'read_file_in_zip', 'read_file_in_tar',
@@ -87,8 +90,9 @@ def read_file_in_zip(filepath: str, path: str) -> str:
     :param path: the relative path within the zip file
 
     """
+    name = re.escape(posixpath.normpath(path))
     try:
-        return zipfile.ZipFile(filepath, 'r', allowZip64=True).read(path).decode('utf8')
+        return ZipFileReadRegex(filepath, 'r', allowZip64=True, regex=name).read(path).decode('utf8')
     except zipfile.BadZipfile as error:
         raise CorruptArchive(f'The input file cannot be read: {error}')
     except KeyError:

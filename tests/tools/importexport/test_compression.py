@@ -10,7 +10,7 @@
 """Test compression utilities"""
 import pytest
 
-from aiida.tools.importexport.archive.zip_path import ZipPath
+from aiida.tools.importexport.archive.zip_path import ZipPath, ZipFileReadRegex
 
 
 def test_zip_path(tmp_path):
@@ -66,3 +66,22 @@ def test_zip_path(tmp_path):
 
     assert ZipPath(tmp_path / 'test.zip') == ZipPath(tmp_path / 'test.zip')
     assert (ZipPath(tmp_path / 'test.zip') / 'a') == ZipPath(tmp_path / 'test.zip').joinpath('a')
+
+
+def test_zip_file_read_regex(tmp_path):
+    """Test the ``ZipFileReadRegex`` class."""
+
+    with ZipPath(tmp_path / 'test.zip', mode='w') as zip_path:
+        zip_path.joinpath('file1.txt').write_text('abc', 'utf8')
+        zip_path.joinpath('other.txt').write_text('lmn', 'utf8')
+        zip_path.joinpath('file2.txt').write_text('xyz', 'utf8')
+
+    with pytest.raises(ValueError, match='can only use ZipFileReadRegex in read mode'):
+        ZipFileReadRegex(str(tmp_path / 'test.zip'), mode='w', regex='.*')
+
+    zip_file = ZipFileReadRegex(str(tmp_path / 'test.zip'), mode='r', regex=r'file[\d]+.txt')
+
+    assert zip_file.read('file1.txt').decode('utf8') == 'abc'
+    assert zip_file.read('file2.txt').decode('utf8') == 'xyz'
+    with pytest.raises(KeyError):
+        zip_file.read('other.txt')
