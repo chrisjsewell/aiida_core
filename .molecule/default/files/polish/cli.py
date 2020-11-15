@@ -146,6 +146,7 @@ def launch(expression, code, use_calculations, use_calcfunctions, sleep, timeout
 
                 if workchain.is_terminated:
                     timed_out = False
+                    total_time = time.time() - start_time
                     break
 
             if timed_out:
@@ -163,7 +164,9 @@ def launch(expression, code, use_calculations, use_calcfunctions, sleep, timeout
                 sys.exit(1)
 
         else:
+            start_time = time.time()
             results, workchain = run_get_node(workchains.Polish00WorkChain, **inputs)
+            total_time = time.time() - start_time
             result = results['result']
 
     click.echo(f'Evaluated : {evaluated}')
@@ -177,7 +180,7 @@ def launch(expression, code, use_calculations, use_calcfunctions, sleep, timeout
             sys.exit(1)
         else:
             click.secho('Success: ', fg='green', bold=True, nl=False)
-            click.secho('the workchain accurately reproduced the evaluated value', bold=True)
+            click.secho(f'the workchain accurately reproduced the evaluated value in {total_time:.2f}s', bold=True)
             sys.exit(0)
 
 
